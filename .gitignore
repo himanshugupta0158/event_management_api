@@ -1,0 +1,59 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+*.wheel
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+.coverage
+coverage.*
+.cache
+pytest_cache/
+nose2-*.xml
+
+# mypy
+.mypy_cache/
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+.env  # Add your environment file if you use local secrets here
+
+# Alembic
+# If you want to ignore local migration versions or SQLite backups
+# Comment out if you keep them in Git
+#migrations/versions/*.pyc
+
+# Visual Studio Code
+.vscode/
+
+# System / OS
+.DS_Store
+Thumbs.db 

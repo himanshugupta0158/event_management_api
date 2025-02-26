@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  event_management_app:
+    build: .
+    container_name: event_management_app
+    ports:
+      - "8100:8100"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      - event_management_db
+      - event_management_celery_worker
+
+  event_management_db:
+    image: postgres:14
+    container_name: event_management_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: event_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
+
+  event_management_celery_worker:
+    build: .
+    container_name: event_management_celery_worker
+    depends_on:
+      - event_management_db
+      - event_management_redis
+    command: >
+      celery -A app.tasks.celery_app worker --loglevel=info
+
+  event_management_redis:
+    image: redis:7
+    container_name: event_management_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  db_data:
