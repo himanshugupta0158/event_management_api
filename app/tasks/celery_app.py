@@ -1,17 +1,26 @@
 from celery import Celery
+from celery.schedules import crontab
 
-# Create the Celery application
 celery_app = Celery(
     "celery_worker",
     broker="redis://event_management_redis:6379/0",
     backend="redis://event_management_redis:6379/0",
 )
 
-# Optional: Add any Celery configuration settings here
+
 celery_app.conf.update(
-    task_serializer="json",
-    accept_content=["json"],
-    result_serializer="json",
-    timezone="UTC",
-    enable_utc=True,
+    result_expires=3600,
+    worker_prefetch_multiplier=1,
+    task_track_started=True,
 )
+
+celery_app.conf.beat_schedule = {
+    "update_appointments_every_minute": {
+        "task": "app.tasks.tasks.check_events_status",
+        "schedule": crontab(minute="*/1"),
+    },
+}
+
+celery_app.conf.broker_connection_retry_on_startup = True
+
+celery_app.conf.imports = ["app.tasks.tasks"]

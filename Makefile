@@ -1,6 +1,7 @@
 SHELL := /bin/bash
+DOCKER_COMPOSE = docker-compose
 
-.PHONY: build up down
+.PHONY: build up down test
 
 build:
 	$(DOCKER_COMPOSE) build

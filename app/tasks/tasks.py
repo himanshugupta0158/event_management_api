@@ -1,44 +1,26 @@
-from datetime import datetime
+import requests
+from celery.utils.log import get_task_logger
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.core.settings import config
-from app.models.event import Event, EventStatus
 from app.tasks.celery_app import celery_app
 
-# Create a synchronous SQLAlchemy engine / session factory
-engine = create_engine(config.DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+logger = get_task_logger(__name__)
 
 
+@celery_app.task(name="app.tasks.tasks.check_events_status")
 def check_events_status():
     """
     Periodically check for events where end_time < now, and
     mark them as 'completed' if they're not already.
     """
-    db = SessionLocal()
     try:
-        now = datetime.utcnow()
-        events = (
-            db.query(Event)
-            .filter(Event.end_time < now, Event.status != EventStatus.completed)
-            .all()
+        response = requests.get(
+            "http://event_management_app:8100/api/internal/event-checker"
         )
-
-        for evt in events:
-            evt.status = EventStatus.completed
-        db.commit()
-    finally:
-        db.close()
-
-
-@celery_app.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
-    """
-    Schedule the 'check_events_status' task to run periodically
-    (e.g., every 60 seconds).
-    """
-    sender.add_periodic_task(
-        60.0, check_events_status.s(), name="Check events status every minute"
-    )
+        if response.status_code != 200:
+            logger.error(
+                f"Failed to check events status: {response.status_code} - {response.text}"
+            )
+        else:
+            logger.info("Event checker task completed successfully!")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request failed: {str(e)}")

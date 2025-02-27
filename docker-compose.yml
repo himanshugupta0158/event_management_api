@@ -34,7 +34,7 @@ services:
       - event_management_db
       - event_management_redis
     command: >
-      celery -A app.tasks.celery_app worker --loglevel=info
+      celery -A app.tasks.celery_app worker --beat -l info
 
   event_management_redis:
     image: redis:7

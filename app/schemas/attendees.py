@@ -1,16 +1,7 @@
-from typing import List, Optional
-
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
-class AttendeeCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    phone_number: str
-
-
-class AttendeeResponse(AttendeeCreate):
+class AttendeeResponse(BaseModel):
     attendee_id: int
     event_id: int
     check_in_status: bool

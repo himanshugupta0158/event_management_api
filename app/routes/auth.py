@@ -1,15 +1,14 @@
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
 
-from app.core.database import get_db
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token
 from app.core.settings import config
-from app.repositories.user_repo import create_user, get_user_by_id, get_user_by_username
+from app.repositories.user_repo import UserRepository, get_user_repo
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.utils.response_format import APIResponse
 
@@ -19,68 +18,96 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 @router.post("/register", response_model=APIResponse, status_code=201)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    existing_user = await get_user_by_username(db, user_data.username)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already taken")
-    new_user = await create_user(db, user_data)
+async def register(
+    user_data: UserCreate,
+    user_repo: UserRepository = Depends(get_user_repo),
+):
+    new_user = await user_repo.register_user(user_data)
+    print("new_user", new_user)
     return APIResponse(
         message="User created successfully",
-        data=UserResponse(new_user),
+        data=UserResponse.model_validate(jsonable_encoder(new_user)),
     )
 
 
 @router.post("/login", response_model=APIResponse, status_code=200)
-async def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    user = await get_user_by_username(db, user_data.username)
-    if not user or not verify_password(user_data.password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+async def login(
+    user_data: UserLogin,
+    user_repo: UserRepository = Depends(get_user_repo),
+):
+    user = await user_repo.login_user(user_data.username, user_data.password)
+    if not user:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content=APIResponse(
+                message="Incorrect username or password",
+                status=401,
+                data={},
+                error="Incorrect username or password",
+            ).model_dump(),
+        )
+
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user.id)},  # We store user.id in the 'sub'
+        data={"sub": user.email, "version": user.token_version},
         expires_delta=access_token_expires,
     )
-    return APIResponse(
-        message="User logged in successfully",
-        data={"access_token": access_token, "token_type": "bearer"},
+
+    data = {
+        "id": user.id,
+        "token_type": "bearer",
+        "access_token": access_token,
+    }
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=APIResponse(
+            message="Login successful",
+            status=200,
+            data=data,
+            error="",
+        ).model_dump(),
     )
 
 
-@router.post("/logout", response_model=APIResponse, status_code=200)
-async def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+@router.post("/logout/")
+async def logout(
+    token: str = Depends(oauth2_scheme),
+    user_repo: UserRepository = Depends(get_user_repo),
+):
     try:
-        # Decode the token
         payload = jwt.decode(
             token,
             config.SECRET_KEY,
             algorithms=[config.ALGORITHM],
         )
-        user_id = payload.get("sub")
-        if not user_id:
+        email = payload.get("sub")
+        if email is None:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Could not validate credentials",
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Retrieve the user and increment their token version
-        user = await get_user_by_id(db, user_id)
-        if not user:
+        user = await user_repo.get_user_by_email(email)
+        if user is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
 
-        user.token_version += 1  # Invalidate existing tokens by bumping version
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        await user_repo.update_token_version(user.id, increment=True)
 
-        return APIResponse(
-            message="Successfully logged out",
-            data={},
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=APIResponse(
+                message="Successfully logged out",
+                status=200,
+                data={},
+                error="",
+            ).model_dump(),
         )
     except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
+            status_code=status.HTTP_401_UNAUTHORIZED,
         )
