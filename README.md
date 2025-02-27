@@ -35,7 +35,7 @@ This repository provides a FastAPI-based Event Management API with JWT-based aut
    ```
 
 3. **API Docs**:  
-   Access the interactive documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+   Access the interactive documentation at [http://localhost:8100/docs](http://localhost:8100/docs).
 
 ## Environment Variables
 
