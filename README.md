@@ -33,6 +33,8 @@ This repository provides a FastAPI-based Event Management API with JWT-based aut
    # Stop the application
    make down
    ```
+   - if using any linux distribution then add sudo then follow up above command
+   - these are docker command to run docker containers using docker-compose.yml file, so all docker compose command will work as well
 
 3. **API Docs**:  
    Access the interactive documentation at [http://localhost:8100/docs](http://localhost:8100/docs).
